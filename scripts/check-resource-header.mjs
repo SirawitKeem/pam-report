@@ -1,0 +1,6 @@
+import nextEnv from '@next/env';import fs from 'node:fs/promises';import {pamFetch} from '../src/lib/pam-transport.mjs';
+nextEnv.loadEnvConfig(process.cwd());const base=new URL(process.env.PAM_BASE_URL).origin;
+const t=await pamFetch(base+'/pam/apps/autheticate/oauth/token-generation/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'client_credentials',client_id:process.env.PAM_CLIENT_ID,client_secret:process.env.PAM_CLIENT_SECRET,customer:process.env.PAM_CUSTOMER_ID}),redirect:'error',signal:AbortSignal.timeout(20000)});const token=await t.json();if(!t.ok||!token.access_token)throw Error('Token HTTP '+t.status);
+const results=[];
+for(const name of ['Authorize','Authorization']){const path='/pam/apps/resources/?page=0&limit=10&search=&filter_by=';const r=await pamFetch(base+path,{headers:{[name]:'Bearer '+token.access_token,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(20000)});const data=await r.json().catch(()=>null);results.push({header:name,path,status:r.status,keys:data?Object.keys(data):[],count:data?.total_resources,error:r.ok?undefined:data?.errors});console.log(JSON.stringify(results.at(-1)));}
+await fs.writeFile('data/resource-header-check.json',JSON.stringify(results,null,2));
